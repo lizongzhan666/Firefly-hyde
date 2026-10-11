@@ -18,7 +18,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11.22. # 指定 pnpm 版本
+          version: 11.22.0 # 指定 pnpm 版本
 
       # 3. 安装 Node.js 22，并启用 pnpm 缓存加速
       - name: Setup Node.js
