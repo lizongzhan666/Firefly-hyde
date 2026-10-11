@@ -1,60 +1,49 @@
-name: Deploy to GitHub Pages
+name: Build and Deploy to Baota
 
 on:
   push:
-    branches: [ master ]
-  workflow_dispatch:
-
-# Pages 部署需要的权限
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-# 确保只有一个部署任务同时运行
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+    branches: [ main ] # 当 main 分支有推送时触发
+  workflow_dispatch: # 允许在 Actions 页面手动点击触发
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-and-deploy:
+    runs-on: ubuntu-latest # 使用 GitHub 免费提供的 Linux 服务器构建
+
     steps:
-      - name: Checkout
+      # 1. 拉取你的仓库代码
+      - name: Checkout Code
         uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          
+
+      # 2. 安装 pnpm 环境
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 11.22.0
-          run_install: false
-          
-      - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
-      
-      - name: Build site
+          version: 12.11.2 # 指定 pnpm 版本
+
+      # 3. 安装 Node.js 22，并启用 pnpm 缓存加速
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.0
+          cache: 'pnpm'
+
+      # 4. 安装项目依赖
+      - name: Install Dependencies
+        run: pnpm install
+
+      # 5. 构建静态文件（生成 dist 目录）
+      - name: Build Project
         run: pnpm run build
 
-      - name: Create .nojekyll file
-        run: touch dist/.nojekyll
-      
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      # 6. 将 dist 目录下的所有文件通过 FTP 上传到宝塔
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          path: dist  # Astro默认构建输出目录
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          # 如果 FTP 端口不是 21，解开下面这行的注释并填上你的端口
+          # port: ${{ secrets.FTP_PORT }} 
+          local-dir: ./dist/   # 本地要上传的目录
+          server-dir: /        # 上传到服务器 FTP 根目录（FTP 账号已绑定网站目录）
+          dangerous-clean-slate: false # 不要清空服务器原有的其他文件，只覆盖同名文件
